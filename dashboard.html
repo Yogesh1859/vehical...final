@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard - Vehicle Maintenance Tracker</title>
+<style>
+body { font-family: Arial,sans-serif; margin:0; padding:0; display:flex; min-height:100vh; transition: background 0.3s,color 0.3s; }
+.sidebar { width:220px; padding:1rem; display:flex; flex-direction:column; transition: background 0.3s, color 0.3s; }
+.sidebar.light { background:#023e8a; color:white; }
+.sidebar.dark { background:#001f3f; color:#ddd; }
+.sidebar h2 { margin-bottom:1rem; }
+.sidebar button { background:transparent; border:none; color:inherit; padding:0.8rem; text-align:left; cursor:pointer; border-radius:6px; margin-bottom:0.5rem; }
+.sidebar button:hover { background:#0077b6; }
+main { flex:1; padding:1rem; max-width:1000px; margin:auto; transition: background 0.3s, color 0.3s; }
+main.light { background:#f4f4f4; color:#000; }
+main.dark { background:#121212; color:#ddd; }
+h2,h3 { color:#0077b6; }
+.card { background:white; padding:1rem; margin:1rem 0; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); transition: background 0.3s, color 0.3s; }
+.card.dark { background:#1e1e1e; color:#ddd; }
+button.action { background:#0077b6; color:white; border:none; padding:0.6rem 1.2rem; border-radius:4px; cursor:pointer; margin-top:1rem; }
+button.action:hover { background:#005f86; }
+#logoutBtn { background:#ff4d4d; margin-top:1rem; padding:0.6rem 1.2rem; border:none; color:white; border-radius:4px; cursor:pointer; }
+#logoutBtn:hover { background:#cc0000; }
+label{display:block;margin-top:0.5rem;}
+input,select{width:100%;padding:0.5rem;margin-top:0.3rem;border:1px solid #ccc;border-radius:4px;}
+ul{list-style:none;padding:0;}
+li{padding:0.6rem;margin:0.5rem 0;border-left:6px solid #0077b6;border-radius:4px;background:#fdfdfd;}
+.due-soon{border-color:orange;}
+.overdue{border-color:red;}
+.on-time{border-color:green;}
+.top-bar{display:flex; justify-content:space-between; align-items:center;}
+#darkModeToggle { cursor:pointer; padding:0.3rem 0.6rem; border:none; border-radius:4px; background:#0077b6; color:white; }
+#darkModeToggle:hover { background:#005f86; }
+</style>
+</head>
+<body class="light">
+
+<div class="sidebar light" id="sidebar">
+  <h2>🚗 VMT</h2>
+  <button id="navDashboard">Dashboard</button>
+  <button id="navVehicles">Vehicles</button>
+  <button id="navServices">Services</button>
+  <button id="navProfile">Profile</button>
+  <button id="logoutBtn">Logout</button>
+  <button id="darkModeToggle">Toggle Dark Mode</button>
+</div>
+
+<main class="light" id="main">
+  <div class="top-bar">
+    <h2>Welcome <span id="currentUser"></span> 👋</h2>
+  </div>
+
+  <div class="card" id="vehicleCard">
+    <h3>Add Vehicle</h3>
+    <form id="vehicleForm">
+      <label>Vehicle Name: <input type="text" id="vehicleName" required></label>
+      <label>Model/Year: <input type="text" id="vehicleModel" required></label>
+      <label>Registration No: <input type="text" id="vehicleReg" required></label>
+      <button type="submit" class="action">Add Vehicle</button>
+    </form>
+  </div>
+  <div class="card" id="vehicleListCard">
+    <h3>Vehicles</h3>
+    <ul id="vehicleList"></ul>
+  </div>
+
+  <div class="card" id="serviceCard">
+    <h3>Add Service</h3>
+    <form id="serviceForm">
+      <label>Select Vehicle:
+        <select id="serviceVehicle" required></select>
+      </label>
+      <label>Service Type:
+        <select id="serviceType" required>
+          <option value="wash">Regular Wash (1 Month)</option>
+          <option value="oil">Oil Change (3 Months)</option>
+          <option value="regular">Regular Service (6 Months)</option>
+        </select>
+      </label>
+      <label>Service Date: <input type="date" id="serviceDate" required></label>
+      <button type="submit" class="action">Add Service</button>
+    </form>
+  </div>
+
+  <div class="card" id="serviceListCard">
+    <h3>Service Logs</h3>
+    <input type="text" id="searchService" placeholder="Search by vehicle ID or type...">
+    <select id="filterService">
+      <option value="all">All</option>
+      <option value="due">Due Soon</option>
+      <option value="overdue">Overdue</option>
+    </select>
+    <ul id="serviceList"></ul>
+  </div>
+
+  <div class="card" id="reportCard">
+    <h3>Service Report</h3>
+    <canvas id="serviceChart"></canvas>
+  </div>
+
+  <div class="card" id="profileSection">
+    <h3>Profile</h3>
+    <p>Email: <span id="profileEmail"></span></p>
+    <p>Name: <span id="profileName"></span></p>
+    <p>Gender: <span id="profileGender"></span></p>
+    <p>Age: <span id="profileAge"></span></p>
+    <button id="resetPass" class="action">Reset Password</button>
+    <button id="editProfileBtn" class="action">Edit Profile</button>
+    <div id="editProfileForm" style="display:none; margin-top:1rem;">
+      <label>Name: <input type="text" id="editName"></label>
+      <label>Gender:
+        <select id="editGender">
+          <option value="">Select Gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Other">Other</option>
+        </select>
+      </label>
+      <label>Age: <input type="number" id="editAge" min="0"></label>
+      <button id="saveProfileBtn" class="action">Save</button>
+    </div>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDbuZk615mBhD9GJ2DpQ8Hr1rI0ZKQTSao",
+  authDomain: "vehical-mainatence-1.firebaseapp.com",
+  projectId: "vehical-mainatence-1",
+  storageBucket: "vehical-mainatence-1.firebasestorage.app",
+  messagingSenderId: "426113189366",
+  appId: "1:426113189366:web:b3d1a12a318d827a7733d7",
+  measurementId: "G-76GBZYHZ0Z"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const elements = {};
+  ['currentUser','profileEmail','profileName','profileGender','profileAge','logoutBtn','vehicleForm','serviceForm','vehicleList','serviceList','serviceVehicle','searchService','filterService','resetPass','editProfileBtn','editProfileForm','editName','editGender','editAge','saveProfileBtn','main','sidebar','darkModeToggle'].forEach(id => elements[id]=document.getElementById(id));
+
+  let currentUserData = {};
+
+  auth.onAuthStateChanged(user=>{
+    if(user){
+      elements.currentUser.textContent = user.displayName || user.email;
+      elements.profileEmail.textContent = user.email;
+      loadProfile(user);
+      loadVehicles(user);
+      loadServices(user);
+    }else{window.location.href="index.html";}
+  });
+
+  elements.logoutBtn.onclick = ()=>auth.signOut();
+  elements.darkModeToggle.onclick = ()=>{
+    document.body.classList.toggle('dark');
+    document.body.classList.toggle('light');
+    elements.main.classList.toggle('dark');
+    elements.main.classList.toggle('light');
+    elements.sidebar.classList.toggle('dark');
+    elements.sidebar.classList.toggle('light');
+    document.querySelectorAll('.card').forEach(c=>c.classList.toggle('dark'));
+  };
+
+  elements.vehicleForm.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const user=auth.currentUser;
+    if(!user)return;
+    await db.collection('users').doc(user.uid).collection('vehicles').add({
+      name: elements.vehicleName.value,
+      model: elements.vehicleModel.value,
+      regNo: elements.vehicleReg.value,
+      createdAt: new Date()
+    });
+    elements.vehicleForm.reset();
+  });
+
+  elements.serviceForm.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const user=auth.currentUser;
+    if(!user)return;
+    await db.collection('users').doc(user.uid).collection('services').add({
+      vehicleId: elements.serviceVehicle.value,
+      type: elements.serviceType.value,
+      date: elements.serviceDate.value,
+      createdAt: new Date()
+    });
+    elements.serviceForm.reset();
+  });
+
+  function loadVehicles(user){
+    elements.vehicleList.innerHTML='';
+    elements.serviceVehicle.innerHTML='';
+    db.collection('users').doc(user.uid).collection('vehicles').orderBy('createdAt').onSnapshot(snap=>{
+      snap.forEach(doc=>{
+        const v=doc.data();
+        const li=document.createElement('li'); li.textContent=`${v.name} (${v.model}) - ${v.regNo}`; elements.vehicleList.appendChild(li);
+        const opt=document.createElement('option'); opt.value=doc.id; opt.textContent=v.name; elements.serviceVehicle.appendChild(opt);
+      });
+    });
+  }
+
+  function loadServices(user){
+    db.collection('users').doc(user.uid).collection('services').orderBy('createdAt').onSnapshot(snap=>renderServices(snap.docs.map(d=>({id:d.id,...d.data()}))));
+  }
+
+  function renderServices(services){
+    elements.serviceList.innerHTML='';
+    const searchVal = elements.searchService.value.toLowerCase();
+    const filterVal = elements.filterService.value;
+    let counts={wash:0,oil:0,regular:0};
+    services.forEach(s=>{
+      if(searchVal && !(`${s.vehicleId} ${s.type}`.toLowerCase().includes(searchVal))) return;
+      const now=new Date(); const serviceDate=new Date(s.date);
+      let nextDue=new Date(serviceDate);
+      if(s.type==='wash') nextDue.setMonth(nextDue.getMonth()+1);
+      if(s.type==='oil') nextDue.setMonth(nextDue.getMonth()+3);
+      if(s.type==='regular') nextDue.setMonth(nextDue.getMonth()+6);
+      let statusClass='on-time'; if((nextDue-now)<0) statusClass='overdue'; else if((nextDue-now)<(7*24*60*60*1000)) statusClass='due-soon';
+      if(filterVal==='due' && statusClass!=='due-soon') return;
+      if(filterVal==='overdue' && statusClass!=='overdue') return;
+      counts[s.type]++;
+      const li=document.createElement('li'); li.className=statusClass; li.textContent=`${s.type} for vehicle [${s.vehicleId}] on ${s.date} (Next: ${nextDue.toDateString()})`; elements.serviceList.appendChild(li);
+    });
+    renderChart(counts);
+  }
+
+  elements.searchService.oninput = ()=>loadServices(auth.currentUser);
+  elements.filterService.onchange = ()=>loadServices(auth.currentUser);
+
+  let chart;
+  function renderChart(counts){
+    const ctx=document.getElementById('serviceChart').getContext('2d');
+    if(chart) chart.destroy();
+    chart=new Chart(ctx,{type:'bar',data:{labels:['Wash','Oil','Regular'],datasets:[{label:'Services',data:[counts.wash,counts.oil,counts.regular],backgroundColor:['#00b4d8','#0077b6','#90e0ef']}]}}); 
+  }
+
+  function loadProfile(user){
+    db.collection('users').doc(user.uid).get().then(doc=>{
+      if(doc.exists){
+        currentUserData=doc.data();
+        elements.profileName.textContent=currentUserData.name||'';
+        elements.profileGender.textContent=currentUserData.gender||'';
+        elements.profileAge.textContent=currentUserData.age||'';
+      }
+    });
+  }
+
+  elements.resetPass.onclick=()=>{
+    const user=auth.currentUser;
+    if(user) auth.sendPasswordResetEmail(user.email).then(()=>alert('Password reset email sent!')).catch(err=>alert(err.message));
+  };
+
+  elements.editProfileBtn.onclick=()=>{
+    elements.editProfileForm.style.display='block';
+    elements.editName.value=currentUserData.name||'';
+    elements.editGender.value=currentUserData.gender||'';
+    elements.editAge.value=currentUserData.age||'';
+  };
+
+  elements.saveProfileBtn.onclick=async ()=>{
+    const user=auth.currentUser; if(!user)return;
+    const updatedData={name:elements.editName.value,gender:elements.editGender.value,age:elements.editAge.value};
+    await db.collection('users').doc(user.uid).set(updatedData,{merge:true});
+    currentUserData={...currentUserData,...updatedData};
+    elements.profileName.textContent=currentUserData.name;
+    elements.profileGender.textContent=currentUserData.gender;
+    elements.profileAge.textContent=currentUserData.age;
+    elements.editProfileForm.style.display='none';
+    alert('Profile updated successfully!');
+  };
+});
+</script>
+
+</body>
+</html>
